@@ -119,5 +119,43 @@ EVALSHA命令格式：`EVALSHA sha1 numkeys key [key …] arg [arg …]`
 
 
 
+##### SCRIPT EXISTS 命令
 
+命令格式：`SCRIPT EXISTS sha1 [sha1 …]`
+作用：给定一个或多个脚本的 SHA1 校验和，返回一个包含 0 和 1 的列表，表示校验和所指定的脚本是否已经被保存在缓存当中
+
+```sh
+127.0.0.1:6379> SCRIPT EXISTS 6aeea4b3e96171ef835a78178fceadf1a5dbe345
+1) (integer) 1
+127.0.0.1:6379> SCRIPT EXISTS 6aeea4b3e96171ef835a78178fceadf1a5dbe346
+1) (integer) 0
+127.0.0.1:6379> SCRIPT EXISTS 6aeea4b3e96171ef835a78178fceadf1a5dbe345 6aeea4b3e96171ef835a78178fceadf1a5dbe366
+1) (integer) 1
+2) (integer) 0
+```
+
+
+
+##### SCRIPT FLUSH 命令
+
+命令格式：`SCRIPT FLUSH`
+作用：清除Redis服务端所有 Lua 脚本缓存
+
+```sh
+127.0.0.1:6379> SCRIPT EXISTS 6aeea4b3e96171ef835a78178fceadf1a5dbe345
+1) (integer) 1
+127.0.0.1:6379> SCRIPT FLUSH
+OK
+127.0.0.1:6379> SCRIPT EXISTS 6aeea4b3e96171ef835a78178fceadf1a5dbe345
+1) (integer) 0
+```
+
+
+
+##### SCRIPT KILL 命令
+
+命令格式：SCRIPT KILL
+作用：杀死当前正在运行的 Lua 脚本，当且仅当这个脚本没有执行过任何写操作时，这个命令才生效。 这个命令主要用于终止运行时间过长的脚本，比如一个因为 BUG 而发生无限 loop 的脚本，诸如此类。
+
+假如当前正在运行的脚本已经执行过写操作，那么即使执行`SCRIPT KILL`，也无法将它杀死，因为这是违反 Lua 脚本的原子性执行原则的。在这种情况下，唯一可行的办法是使用`SHUTDOWN NOSAVE`命令，通过停止整个 Redis 进程来停止脚本的运行，并防止不完整(half-written)的信息被写入数据库中。
 
