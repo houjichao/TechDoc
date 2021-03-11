@@ -181,6 +181,18 @@ ognl '#obj=new com.shirc.arthasexample.ognl.Shirc("jjdlmn",true),@com.shirc.arth
 Failed to execute ognl, exception message: ognl.MethodFailedException: Method "new" failed for object com.hjc.learn.model.Movie [java.lang.NoSuchMethodException], please check $HOME/logs/arthas/arthas.log for more details.
 ```
 
+**经过测试，以上的方式是无法构造一个复杂对象的，可以用以下方式代替**
+
+```
+[arthas@89686]$ ognl '#obj=new com.hjc.learn.model.Movie(),#obj.setName("2222"), #obj.setDirector("1111"),@com.hjc.learn.test.ArthasStaticDemo@setMovie(#obj)' -x 2
+@Movie[
+    name=@String[2222],
+    director=@String[1111],
+]
+```
+
+
+
 ### 方法入参是一个map
 
 ```
