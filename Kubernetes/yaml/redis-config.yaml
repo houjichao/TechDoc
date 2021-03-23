@@ -1,0 +1,19 @@
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: redis-config
+  namespace: houjichao
+  labels:
+    app: redis
+data:
+  redis.conf: |-
+    dir /Users/houjichao/Work/tmp/redis
+    port 7379
+    bind 0.0.0.0
+    appendonly yes
+    protected-mode no
+    requirepass houjichao
+    pidfile /Users/houjichao/Work/tmp/redis/redis-7379.pid
+
+
