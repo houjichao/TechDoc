@@ -64,3 +64,21 @@ select task_status, GROUP_CONCAT(id ORDER BY create_time DESC SEPARATOR '_') fro
 select task_status, GROUP_CONCAT(CONCAT_WS('---',ID,task_name) ORDER BY create_time DESC SEPARATOR '....') from index_analyse_task GROUP BY task_status;
 ```
 
+4、报错解决：
+
+MySql数据库查询时（或者insert into tables时报错），使用group_concat报错“Row XXX was cut by GROUP_CONCAT()”，单独查询不会报错，当我要查询的数据更新到另外个表中的字段时，会报这个错，网上查了下是因为GROUP_CONCAT有个最大长度的限制，超过最大长度就会被截断掉
+
+查询最大长度
+
+```
+SELECT @@global.group_concat_max_len;
+```
+
+修改最大长度
+
+```
+SET GLOBAL group_concat_max_len=102400;
+SET group_concat_max_len=102400;
+```
+
+完美解决
