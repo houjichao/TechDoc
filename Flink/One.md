@@ -1,5 +1,7 @@
 nc -lk 9999
 
+socket的并行度只能是1
+
 state
 
 两种state 一种operator state 针对task级别 一种keyed state 针对key级别
