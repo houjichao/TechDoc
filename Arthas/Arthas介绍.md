@@ -13,3 +13,28 @@
 7. 怎么快速定位应用的热点，生成火焰图？
 
 `Arthas`支持JDK 6+，支持Linux/Mac/Windows，采用命令行交互模式，同时提供丰富的 `Tab` 自动补全功能，进一步方便进行问题的定位和诊断。
+
+
+
+## 快速安装
+
+### 使用`arthas-boot`（推荐）
+
+下载`arthas-boot.jar`，然后用`java -jar`的方式启动：
+
+```
+curl -O https://arthas.aliyun.com/arthas-boot.jar
+java -jar arthas-boot.jar
+```
+
+```
+[root@snpt-meta-display-5cc47bff7b-zp64x app]# java -jar arthas-boot.jar
+Picked up JAVA_TOOL_OPTIONS:  -Xloggc:/data/tsf_apm/monitor/jvm-metrics/gclog.log 
+[INFO] arthas-boot version: 3.5.0
+[INFO] Found existing java process, please choose one and input the serial number of the process, eg : 1. Then hit ENTER.
+* [1]: 1 snpt-meta_1.0.0-RELEASE.jar
+1
+
+输入1，进入java进程
+```
+
