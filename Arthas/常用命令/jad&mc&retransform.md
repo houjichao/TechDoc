@@ -2,6 +2,10 @@
 
 这三个命令属于研发类必须关注的，用来做线上热更调试，因为发版本往往成本都会比较高，所以如果定位出具体问题，而且修改又少，就可以通过一台机器做热更，达到灰度对比的效果。
 
+代码demo:
+
+[spring-boot-learn](https://github.com/houjichao/spring-boot-learn)
+
 ### jad
 
 jad在使用之前，都建议先用sc
@@ -60,6 +64,12 @@ Affect(row-cnt:1) cost in 89 ms.
 
 然后运行 jad --source-only  类全路径 > /保存目录/文件名.java
 
+```
+[arthas@86149]$ pwd
+/Users/houjichao/Work/Java/hjc/spring-boot-learn
+[arthas@86149]$ jad --source-only com.hjc.learn.controller.UserController > /Users/houjichao/Work/Java/hjc/spring-boot-learn/UserController.java
+```
+
 ### mc
 
 > Memory Compiler/内存编译器，编译`.java`文件生成`.class`。
@@ -91,6 +101,26 @@ mc -d /tmp/output /tmp/ClassA.java /tmp/ClassB.java
 
 ```
 mc -d /Users/houjichao/Work/Java/hjc/TechDoc -c 18b4aac2 /Users/houjichao/Work/Java/hjc/spring-boot-learn/src/main/java/com/hjc/learn/controller/WebFluxController.java
+```
+
+**踩坑点**
+
+jad  --source-only后会将源码中的内容修改，强转部分实体，导致mc报错，需要将这块删除，重新mc 
+
+```
+[arthas@86149]$ mc -d 18b4aac2 UserController.java
+Memory compiler error, exception message: Compilation Error
+line: 41 , message: 不兼容的类型: java.lang.Object无法转换为com.hjc.learn.entity.User ,
+, please check $HOME/logs/arthas/arthas.log for more details.
+[arthas@86149]$ mc -d 18b4aac2 UserController.java
+Memory compiler output:
+/Users/houjichao/Work/Java/hjc/spring-boot-learn/18b4aac2/com/hjc/learn/controller/UserController.class
+Affect(row-cnt:1) cost in 1113 ms.
+[arthas@86149]$
+[arthas@86149]$
+[arthas@86149]$ retransform -c 18b4aac2 /Users/houjichao/Work/Java/hjc/spring-boot-learn/18b4aac2/com/hjc/learn/controller/UserController.class
+retransform success, size: 1, classes:
+com.hjc.learn.controller.UserController
 ```
 
 ### retransform
