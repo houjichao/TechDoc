@@ -17,6 +17,21 @@ end
 
 #### 执行Lua脚本文件
 
+**完整版**
+
+```
+
+docker cp RedisSet.lua 7ed26093003:/data
+
+docker exec -it  7ed26093003c /bin/bash
+
+redis-cli  --eval ./RedisSet.lua "houjichao"  "gaoxin" , "93"  "95"
+```
+
+
+
+
+
 ```sh
 执行命令： redis-cli -a 密码 --eval Lua脚本路径 key [key …] ,  arg [arg …] 
 如：redis-cli -a 123456 --eval ./Redis_CompareAndSet.lua userName , zhangsan lisi 
