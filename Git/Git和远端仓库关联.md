@@ -22,7 +22,7 @@ git commit -m "这里是备注信息" -a
 
 ### **5. 连接远程仓库，在本地的命令框中输入下面的命令，即连接到了名为viua-manager-service的仓库上**
 
-git remote add origin https://git.netposa.com/VIUA/viua-manager-service.git
+git remote add origin https://git.****.com/***.git
 
 ### **6.把本地项目推送到远程仓库**
 
