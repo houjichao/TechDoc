@@ -27,5 +27,5 @@ git merge develop --allow-unrelated-histories
 
 如果你是git pull或者git push报fatal: refusing to merge unrelated histories
 同理：
-git pull origin master --allow-unrelated-histories
+git pull origin master --allow-unrelated-histori
 
