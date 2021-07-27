@@ -37,3 +37,4 @@ MySQL [information_schema]> select table_rows,concat(round((DATA_LENGTH+INDEX_LE
 ```
 
 从上可以估算出来18599条记录是16.58MB，那一条记录的大小就很容易估算了
+
