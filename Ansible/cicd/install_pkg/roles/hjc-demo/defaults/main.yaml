@@ -1,0 +1,5 @@
+service_name: "{{role_name}}"
+pkg_dir: "{{playbook_dir}}/pkg"
+pkg_patch: "{{playbook_dir}}/patch/"
+work_dir: "/data/ioc"
+app_port: 9106

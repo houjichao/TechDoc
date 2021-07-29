@@ -1,0 +1,97 @@
+pipeline {
+  agent any
+  environment {
+    coding_url = 'url/hjc'
+  }
+  stages {
+    stage('ioc cicd 检出') {
+      steps {
+        sh """
+        git clone -b ${GIT_LOCAL_BRANCH} http://${CODE_USERNAME}:'${CODE_PASSWORD}'@${coding_url}/*.git
+        """
+        sh '''
+        # 将安装脚本上传到ansible机器
+        ip=`ifconfig -a|grep inet|grep -v 127.0.0.1|grep -v inet6|awk '{print $2}'|tr -d "addr:"​`
+        echo $ip
+        ssh -o StrictHostKeyChecking=no -p 36000 jenkins@${TEST_ANSIBLE_SERVER} "sudo rm -rf /data/deploy/ioc/* && sudo mkdir -p /data/deploy/ioc/ && sudo chown -R jenkins:jenkins /data/deploy && chmod 755 /data/deploy "
+        scp -r -o StrictHostKeyChecking=no -P 36000 ${WORKSPACE}/ioc-cicd/install_pkg/* jenkins@${TEST_ANSIBLE_SERVER}:/data/deploy/ioc/
+        '''
+      }
+    }
+
+    stage('并行构建微服务阶段') {
+      parallel {
+
+        stage('ioc-hjc-demo 编译构建') {
+          agent {
+            docker {
+              image 'ipcmaven.pdcts.com.cn:8082/jdk:1.8'
+              args '-v /data/repo:/data/repo -v /home/jenkins:/home/jenkins'
+              reuseNode true
+            }
+          }
+          when {
+            beforeAgent true
+            anyOf {
+              environment name: 'microservice', value: 'all'
+              environment name: 'microservice', value: 'hjc-demo'
+            }
+          }
+          environment {
+            project_name = 'hjc-demo'
+          }
+          steps {
+            sh """
+            # 拉取综合指挥hjc-demo项目代码
+            bash -e ${WORKSPACE}/ioc-cicd/${project_name}/clone.sh '${IOC_BRANCH}' '${GIT_USERNAME}' '${GIT_PASSWORD}'
+            """
+            sh """
+            # 编译hjc-demo项目
+            if [ ${SKIP_TEST_FLAG}x == "false"x ]; then
+              SKIP_TEST_FLAG=false
+            else
+              SKIP_TEST_FLAG=true
+            fi
+            bash -e ${WORKSPACE}/ioc-cicd/${project_name}/build.sh '${WORKSPACE}' '${project_name}' '${SKIP_TEST_FLAG}'
+            """
+            archiveArtifacts "${project_name}/coding-saas-result/*.jar"
+            echo "Succeed to build ${project_name}."
+
+            sh """
+            # 将hjc-demo构建产物传到ansible机器
+            if [ ${DEPLOY_FLAG}x == "true"x ]; then
+               scp -o StrictHostKeyChecking=no -P 36000 ${project_name}/coding-saas-result/*.jar jenkins@${TEST_ANSIBLE_SERVER}:/data/deploy/ioc/pkg/
+            else
+               echo "skip scp package to server"
+            fi
+            """
+
+            sh """
+            # 执行hjc-demo ansible-playbook脚本，将hjc-demo构建产物从ansible机器部署到目标环境
+            if [ ${DEPLOY_FLAG}x == "true"x ]; then
+               ssh -o StrictHostKeyChecking=no -p 36000 jenkins@${TEST_ANSIBLE_SERVER} "cd /data/deploy/ioc && sudo ansible-playbook -i ./hosts ${project_name}.yaml"
+            else
+               echo "skip scp package to server"
+            fi
+            """
+
+            sh """
+            # 检查进程
+            if [ ${DEPLOY_FLAG}x == "true"x ]; then
+                # ssh -o StrictHostKeyChecking=no -p 36000 jenkins@${TEST_ANSIBLE_SERVER} "cd /data/deploy/ioc/roles/${project_name}/templates/ && sudo bash check.sh"
+                echo "success"
+            else
+                echo "skip check pid"
+            fi
+            """
+
+          }
+        }
+
+
+
+
+      }
+    }
+  }
+}

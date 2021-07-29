@@ -1,0 +1,6 @@
+---
+- hosts: manager1
+  roles:
+    - hjc-demo
+  vars:
+    filename: /data/deploy/ioc/pkg/*.jar

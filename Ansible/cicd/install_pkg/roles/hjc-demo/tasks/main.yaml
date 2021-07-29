@@ -1,0 +1,55 @@
+- name: "prepare some dirs."
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - "/data"
+    - "/data/ioc"
+    - "/data/ioc/hjc-demo"
+    - "/data/ioc/hjc-demo/bin"
+    - "/data/bak"
+
+- name: "check {{work_dir}}/{{service_name}}  port exists or not"
+  shell: "port={{app_port}} && pid=`netstat -tlnp | grep $port |grep LISTEN| awk '{print $7}' | awk -F '/' '{print $1}'` && if [ -n \"$pid\" ];then  kill -9 $pid;  fi"
+  ignore_errors: true
+  tags: stop_service
+
+- name: "check {{work_dir}}/{{service_name}}  path exist or not"
+  shell: 'if [ -d "{{work_dir}}/{{service_name}}" ];then echo successed; else echo failed;  fi; '
+  register: service_path
+  ignore_errors: true
+
+- name: "backup {{service_name}}"
+  archive:
+    path: "{{work_dir}}/{{service_name}}"
+    dest: "{{work_dir}}/bak/{{service_name}}_{{ '%Y-%m-%d_%H-%M' | strftime(ansible_date_time.epoch) }}.tar.gz"
+    remove: yes
+    format: gz
+  when: service_path.stdout == 'successed'
+  ignore_errors: True
+
+#使用var定义filename解决通配符拷贝的问题
+- name: "{{service_name}} ---- install <hjc-demo>"
+  copy:
+    src: "{{ item }}"
+    dest: "{{work_dir}}/{{service_name}}/lib/"
+    mode: 0755
+  with_fileglob:
+    - "{{ filename }}"
+
+- name: "{{service_name}} ---- copy restart.sh to {{service_name}}"
+  template:
+    src: "{{item}}"
+    dest: "{{work_dir}}/{{service_name}}/bin/{{item}}"
+    mode: 0755
+  with_items:
+    - restart.sh
+
+- name: "{{service_name}} ---- start {{service_name}}"
+  shell: "source /etc/profile && nohup sh -x {{work_dir}}/{{service_name}}/bin/restart.sh &"
+  tags: restart
+
+- name: 检查进程
+  shell: "nohup sh -x {{playbook_dir}}/roles/{{service_name}}/templates/check.sh &"
+  tags: restart
+
