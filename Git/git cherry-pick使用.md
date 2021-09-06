@@ -155,3 +155,33 @@ Cherry pick 也支持转移另一个代码库的提交，方法是先将该库�
 > ```bash
 > $ git cherry-pick <commitHash>
 > ```
+
+
+
+## 六、git将一个分支的提交合并到另一个分支
+
+例如要将A分支的一个commit合并到B分支：
+
+首先切换到A分支
+
+```
+git checkout A
+
+git log
+```
+
+找出要合并的commit ID :
+
+例如
+
+325d41
+
+然后切换到B分支上
+
+```
+git checkout B
+
+git cherry-pick 325d41
+```
+
+然后就将A分支的某个commit合并到了B分支了，多个commit的话用空格隔开追加即可

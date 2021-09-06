@@ -22,7 +22,7 @@
 
 ## 调研
 
-市面上的APM全称是（**A**pplication **P**erformance **M**onitor，当然也有叫 **A**pplication **P**erformance **M**anagement tools），理论模型大多都是借鉴Google Dapper论文。
+市面上的APM全称是（**A**pplication **P**erformance **M**onitor[应用程序性能监控]，当然也有叫 **A**pplication **P**erformance **M**anagement tools），理论模型大多都是借鉴Google Dapper论文。
 
 我最近也在选取使用哪一个工具，这里的对比是在Spring Cloud 中的使用。
 
