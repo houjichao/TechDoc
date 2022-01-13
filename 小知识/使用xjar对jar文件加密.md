@@ -41,11 +41,24 @@ JDK 1.7 +
 
 #### 2. 加密源码编译脚本
 ```shell script
+#编译服务
 mvn clean package -U -Dmaven.test.skip=true
 mvn xjar:build -Dxjar.password=houjichao
 cd /target
 go build xjar.go
-go build -o可以指定路径
+go build -o 可以指定路径
+go build -o ${WORKSPACE}/service-path/target xjar.go
+
+#拷贝产物到流水线产物目录
+mv target/snpt-model-market_1.0.0-RELEASE.xjar ${RESULT}
+mv target/xjar ${RESULT}
+
+#发送产物到目标机器
+scp -o StrictHostKeyChecking=no -P 36000 ${module_name}/path/*.xjar jenkins@${TEST_ANSIBLE_SERVER}:/data/deploy/xxx/pkg/
+scp -o StrictHostKeyChecking=no -P 36000 ${module_name}/path/xjar jenkins@${TEST_ANSIBLE_SERVER}:/data/deploy/xxx/pkg/
+
+#目标机器执行ansible命令
+ansible-playbook -i ./hosts ${module_name}.yaml
 ```
 * 通过步骤2加密成功后XJar会在输出的JAR包同目录下生成一个名为 xjar.go 的的Go启动器源码文件.
 * 将 xjar.go 在不同的平台进行编译即可得到不同平台的启动器可执行文件, 其中Windows下文件名为 xjar.exe 而Linux下为 xjar
