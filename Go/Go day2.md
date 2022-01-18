@@ -12,3 +12,8 @@ PS：1）C语言外部引用的函数，没有这个限制；
 
 ​        2）C语言会有extern C或者extern说明，但golang的首字母大写才能导出的语法，显然是golang语言的特性，值得学习
 
+
+
+
+
+export GO111MODULE=on 
