@@ -2,7 +2,7 @@
 
 k8s 部署服务可以采用两种方式
 1. 自己编写对应的资源控制yaml ，kubectl apply -f XX .yml部署
-2.使用helm charts的方式部署
+2. 使用helm charts的方式部署
 
 ### Helm 是什么？
 
