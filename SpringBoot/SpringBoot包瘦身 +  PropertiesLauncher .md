@@ -31,7 +31,7 @@
                         <artifactId>nothing</artifactId>
                     </include>
                     <include>
-                        <groupId>com.huacloud.tax.rpc</groupId>
+                        <groupId>com.hjc.tax.rpc</groupId>
                         <artifactId>common</artifactId>
                     </include>
                 </includes>
