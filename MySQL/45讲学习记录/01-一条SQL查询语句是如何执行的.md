@@ -12,3 +12,7 @@ select SQL_CACHE  * from test1;
 ##### 执行器
 
 开始执行的时候，要先判断一下你对这个表 T 有没有执行查询的权限，如果没有，就会返回没有权限的错误，如下所示 (在工程实现上，如果命中查询缓存，会在查询缓存返回结果的时候，做权限验证。查询也会在优化器之前调用 precheck 验证权限)。
+
+
+
+![img](https://img-blog.csdnimg.cn/20200419204847494.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3dlaXhpbl80MDYyOTI0NA==,size_16,color_FFFFFF,t_70)
