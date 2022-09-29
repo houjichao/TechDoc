@@ -1,0 +1,208 @@
+```
+create table t1(id int primary key, a int, b int, index(a));
+create table t2 like t1;
+drop procedure idata;
+delimiter ;;
+create procedure idata()
+begin
+  declare i int;
+  set i=1;
+  while(i<=1000)do
+    insert into t1 values(i, 1001-i, i);
+    set i=i+1;
+  end while;
+  
+  set i=1;
+  while(i<=1000000)do
+    insert into t2 values(i, i, i);
+    set i=i+1;
+  end while;
+ 
+end;;
+delimiter ;
+call idata();
+```
+
+**表 t1 中字段 a 是逆序的**
+
+## 1. Multi-Range Read 优化
+
+Multi-Range Read 优化 (MRR)。这个优化的主要目的是尽量使用顺序读盘。
+
+```
+select * from t1 where a>=1 and a<=100;
+```
+
+回表过程是一行行地查数据，还是批量地查数据？
+
+主键索引是一棵 B+ 树，在这棵树上，每次只能根据一个主键 id 查到一行数据。因此，**回表肯定是一行行搜索主键索引的**
+
+这就是 MRR 优化的设计思路。此时，语句的执行流程变成了这样：
+
+1. 根据索引 a，定位到满足条件的记录，将 id 值放入 read_rnd_buffer 中 ;
+
+2. 将 read_rnd_buffer 中的 id 进行递增排序；
+
+3. 排序后的 id 数组，依次到主键 id 索引中查记录，并作为结果返回。
+
+这里，read_rnd_buffer 的大小是由 read_rnd_buffer_size 参数控制的。如果步骤 1 中，read_rnd_buffer 放满了，就会先执行完步骤 2 和 3，然后清空 read_rnd_buffer，之后继续找索引 a 的下个记录，并继续循环。
+
+另外需要说明的是，如果你想要稳定地使用 MRR 优化的话，需要设置set optimizer_switch="mrr_cost_based=off"。
+
+
+
+**MRR 能够提升性能的核心在于，这条查询语句在索引 a 上做的是一个范围查询（也就是说，这是一个多值查询），可以得到足够多的主键 id。这样通过排序以后，再去主键索引查数据，才能体现出“顺序性”的优势。**
+
+
+
+## 2. Batched Key Access
+
+![img](https://img-blog.csdnimg.cn/img_convert/ae1409f3396ed7695d85260d1fcb047a.png)
+
+NLJ 算法执行的逻辑是：**从驱动表 t1，一行行地取出 a 的值，再到被驱动表 t2 去做 join。也就是说，对于表 t2 来说，每次都是匹配一个值，这时，MRR 的优势就用不上了。**
+
+那怎么才能一次性地多传些值给表 t2 呢？**方法就是，从表 t1 里一次性地多拿些行出来，一起传给表 t2。**
+
+**既然如此，我们就把表 t1 的数据取出来一部分，先放到一个临时内存，这个临时内存不是别人，就是 join_buffer。**
+
+Batched Key Access 执行的流程：
+
+![img](https://img-blog.csdnimg.cn/img_convert/6608ca0b41ef8a2ec05c8e7fe7ee468f.png)
+
+如果要使用 BKA 优化算法的话，你需要在执行 SQL 语句之前，先设置：
+
+```
+set optimizer_switch='mrr=on,mrr_cost_based=off,batched_key_access=on';
+```
+
+**其中，前两个参数的作用是要启用 MRR。这么做的原因是，BKA 算法的优化要依赖于 MRR。**
+
+## 3. BNL 算法的性能问题
+
+为了减少这种影响，你可以考虑增大 join_buffer_size 的值，减少对被驱动表的扫描次数。
+
+也就是说，BNL 算法对系统的影响主要包括三个方面：
+
+1. 可能会多次扫描被驱动表，占用磁盘 IO 资源；
+
+2. 判断 join 条件需要执行 M*N 次对比（M、N 分别是两张表的行数），如果是大表就会占用非常多的 CPU 资源；
+
+3. 可能会导致 Buffer Pool 的热数据被淘汰，影响内存命中率。
+
+**我们执行语句之前，需要通过理论分析和查看 explain 结果的方式，确认是否要使用 BNL 算法。如果确认优化器会使用 BNL 算法，就需要做优化。优化的常见做法是，给被驱动表的 join 字段加上索引，把 BNL 算法转成 BKA 算法。**
+
+## 4. BNL 转 BKA
+
+一些情况下，我们可以直接在被驱动表上建索引，这时就可以直接转成 BKA 算法了。
+
+但是，有时候你确实会碰到一些不适合在被驱动表上建索引的情况。比如下面这个语句：
+
+```
+select * from t1 join t2 on (t1.b=t2.b) where t2.b>=1 and t2.b<=2000;
+```
+
+我们在文章开始的时候，在表 t2 中插入了 100 万行数据，但是经过 where 条件过滤后，需要参与 join 的只有 2000 行数据。**如果这条语句同时是一个低频的 SQL 语句，那么再为这个语句在表 t2 的字段 b 上创建一个索引就很浪费了。**
+
+
+
+在表 t2 的字段 b 上创建索引会浪费资源，但是不创建索引的话这个语句的等值条件要判断 10 亿次，想想也是浪费。那么，有没有两全其美的办法呢？
+
+这时候，我们可以考虑使用临时表。使用临时表的大致思路是：
+
+1. 把表 t2 中满足条件的数据放在临时表 tmp_t 中；
+
+2. 为了让 join 使用 BKA 算法，给临时表 tmp_t 的字段 b 加上索引；
+
+3. 让表 t1 和 tmp_t 做 join 操作。
+
+此时，对应的 SQL 语句的写法如下：
+
+```sql
+create temporary table temp_t(id int primary key, a int, b int, index(b))engine=innodb;
+insert into temp_t select * from t2 where b>=1 and b<=2000;
+select * from t1 join temp_t on (t1.b=temp_t.b);
+```
+
+整个过程 3 个语句执行时间的总和还不到 1 秒，相比于前面的 1 分 11 秒，性能得到了大幅提升。接下来，我们一起看一下这个过程的消耗：
+
+1. 执行 insert 语句构造 temp_t 表并插入数据的过程中，对表 t2 做了全表扫描，这里扫描行数是 100 万；
+
+2. 之后的 join 语句，扫描表 t1，这里的扫描行数是 1000；join 比较过程中，做了 1000 次带索引的查询。相比于优化前的 join 语句需要做 10 亿次条件判断来说，这个优化效果还是很明显的。
+
+**总体来看，不论是在原表上加索引，还是用有索引的临时表，我们的思路都是让 join 语句能够用上被驱动表上的索引，来触发 BKA 算法，提升查询性能。**
+
+## 5. 扩展 -hash join
+
+这也正是 MySQL 的优化器和执行器一直被诟病的一个原因：不支持哈希 join。并且，MySQL 官方的 roadmap，也是迟迟没有把这个优化排上议程。
+
+实际上，这个优化思路，我们可以自己实现在业务端。实现流程大致如下：
+
+1. select * from t1；取得表 t1 的全部 1000 行数据，在业务端存入一个 hash 结构，比如 C++ 里的 set、PHP 的数组这样的数据结构；
+
+2. select * from t2 where b>=1 and b<=2000；获取表 t2 中满足条件的 2000 行数据；
+
+3. 把这 2000 行数据，一行一行地取到业务端，到 hash 结构的数据表中寻找匹配的数据。满足匹配的条件的这行数据，就作为结果集的一行。
+
+## 6. 小结
+
+今天，我和你分享了 Index Nested-Loop Join（NLJ）和 Block Nested-Loop Join（BNL）的优化方法。
+
+在这些优化方法中：
+
+1. BKA 优化是 MySQL 已经内置支持的，建议你默认使用；
+
+2. BNL 算法效率低，建议你都尽量转成 BKA 算法。优化的方向就是给被驱动表的关联字段加上索引；
+
+3. 基于临时表的改进方案，对于能够提前过滤出小数据的 join 语句来说，效果还是很好的；
+
+4. MySQL 目前的版本还不支持 hash join，但你可以配合应用端自己模拟出来，理论上效果要好于临时表的方案。
+
+
+
+
+
+思考题：
+
+我们在讲 join 语句的这两篇文章中，都只涉及到了两个表的 join。那么，现在有一个三个表 join 的需求，假设这三个表的表结构如下：
+
+```sql
+CREATE TABLE `t1` (
+ `id` int(11) NOT NULL,
+ `a` int(11) DEFAULT NULL,
+ `b` int(11) DEFAULT NULL,
+ `c` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB;
+ 
+create table t2 like t1;
+create table t3 like t2;
+insert into ... //初始化三张表的数据
+```
+
+语句的需求实现如下的 join 逻辑：
+
+```
+select * from t1 join t2 on(t1.a=t2.a) join t3 on (t2.b=t3.b) where t1.c>=X and t2.c>=Y and t3.c>=Z;
+```
+
+现在为了得到最快的执行速度，如果让你来设计表 t1、t2、t3 上的索引，来支持这个 join 语句，你会加哪些索引呢？
+
+同时，如果我希望你用 straight_join 来重写这个语句，配合你创建的索引，你就需要安排连接顺序，你主要考虑的因素是什么呢？
+
+问题解答：
+
+第一原则是要尽量使用 BKA 算法。需要注意的是，使用 BKA 算法的时候，并不是“先计算两个表 join 的结果，再跟第三个表 join”，而是直接嵌套查询的。
+
+具体实现是：在 t1.c>=X、t2.c>=Y、t3.c>=Z 这三个条件里，选择一个经过过滤以后，数据最少的那个表，作为第一个驱动表。此时，可能会出现如下两种情况。
+
+第一种情况，如果选出来是表 t1 或者 t3，那剩下的部分就固定了。
+
+1. 如果驱动表是 t1，则连接顺序是 t1->t2->t3，要在被驱动表字段创建上索引，也就是 t2.a 和 t3.b 上创建索引；
+
+2. 如果驱动表是 t3，则连接顺序是 t3->t2->t1，需要在 t2.b 和 t1.a 上创建索引。
+
+同时，我们还需要在第一个驱动表的字段 c 上创建索引。
+
+第二种情况是，如果选出来的第一个驱动表是表 t2 的话，则需要评估另外两个条件的过滤效果。
+
+总之，整体的思路就是，尽量让每一次参与 join 的驱动表的数据集，越小越好，因为这样我们的驱动表就会越小。
