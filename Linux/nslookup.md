@@ -1,6 +1,8 @@
 nslookup简介
 nslookup命令用于查询DNS的记录，从而得到该域名的IP地址和其他信息。
 
+nslookup安装：yum install bind-utils -y
+
 nslookup常用命令
 
 #### 1.直接查询（查询一个域名的A记录）
@@ -18,6 +20,15 @@ Name:   baidu.com
 Address: 110.242.68.66
 Name:   baidu.com
 Address: 39.156.66.10
+
+Server: ntgirdcaparw00.ap.xx.com--->返回的是自己的服务器
+Address: 10.240.1.254 ------>返回的自己的IP
+
+ 
+
+Non-authoritative answer: ----->未验证的回答
+Name: baidu.com ------->目标域名
+Addresses: 220.181.111.85 ------->目标返回的Ip
 ```
 
 #### 2.查询其他记录
