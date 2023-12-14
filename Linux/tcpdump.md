@@ -73,3 +73,17 @@ tcpdump [ -adeflnNOpqStvx ] [ -c 数量 ] [ -F 文件名 ]
 `-X`：告诉tcpdump命令，需要把协议头和包内容都原原本本的显示出来（tcpdump会以16进制和ASCII的形式显示），这在进行协议分析时是绝对的利器。
 
 -A：  以ascii的方式显示数据包，抓取web数据时很有用。
+
+```
+tcpdump -i eth1 -nnnvXASs 1514 host 9.139.21.216
+```
+
+
+
+```
+yum install bind-utils -y
+nslookup xxxx.com
+```
+
+
+
